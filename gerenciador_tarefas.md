@@ -2,7 +2,7 @@
 
 Aplicação web simples e responsiva para organização de tarefas diárias, com controle de prioridades, acompanhamento de prazos e persistência de dados no navegador.
 
-🔗 **Acesse o projeto online:** [Clique aqui para visualizar](https://seu-link-aqui.vercel.app)
+🔗 **Acesse o projeto online:** [Clique aqui para visualizar](https://gerenciadortarefas-eosin.vercel.app/)
 
 ## 🚀 Funcionalidades
 
