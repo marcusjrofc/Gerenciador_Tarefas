@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Tarefas</title>
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Minhas tarefas</h1>
+            <span id="contador">0 pendentes</span>
+        </header>
+
+        <!-- Formulario de adição de tarefas -->
+        <form id="form-tarefa">
+            <input type="text" id="titulo" placeholder="O que precisa ser feito?" required>
+
+            <select id="prioridade">
+                <option value="baixa">Prioridade: Baixa</option>
+                <option value="media" selected>Prioridade: Média</option>
+                <option value="alta">Prioridade: Alta</option>
+            </select>
+
+            <input type="date" id="prazo">
+            <button type="submit" id="btn_submit">Adicionar</button>
+        </form>
+
+        <!-- Filtros -->
+        <section class="filtros">
+            <input type="text" id="busca" placeholder="Buscar tarefa...">
+
+            <select id="filtro-status">
+                <option value="todos">Status: Todos</option>
+                <option value="a-fazer">A fazer</option>
+                <option value="fazendo">Fazendo</option>
+                <option value="feito">Feito</option>
+            </select>
+
+
+            <select id="filtro-prioridade">
+                <option value="todas">Prioridade: Todas</option>
+                <option value="baixa">Baixa</option>
+                <option value="media">Média</option>
+                <option value="alta">Alta</option>
+            </select>
+        </section>
+
+
+        <main id="lista-tarefas"></main>
+    </div>
+    <script src="./js/script.js"></script>
+</body>
+
+</html>
