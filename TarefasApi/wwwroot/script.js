@@ -1,7 +1,5 @@
 // 1. Configuração da API e Estado
-const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? ''
-    : 'https://gerenciador-tarefas-8kvh.onrender.com';
+const API_BASE = 'https://tarefas-api-dqhd.onrender.com';
 
 const API_TAREFAS = `${API_BASE}/tarefas`;
 let tarefas = [];
