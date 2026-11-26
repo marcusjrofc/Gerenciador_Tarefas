@@ -11,11 +11,12 @@ public class TarefaRepository
 
     public TarefaRepository(IConfiguration configuration)
     {
-        // Lê os valores do appsettings.Development.json
-        _url = configuration["Turso:Url"]
+        var rawUrl = configuration["Turso:Url"]
             ?? throw new InvalidOperationException("URL do Turso não configurada.");
+        _url = rawUrl.Replace("libsql://", "https://");
+
         _token = configuration["Turso:Token"]
-            ?? throw new InvalidOperationException("Token do Turso não configurada.");
+            ?? throw new InvalidOperationException("Token do Turso não configurado.");
     }
 
     private async Task<IDatabaseClient> CriarClienteAsync()
@@ -27,10 +28,18 @@ public class TarefaRepository
         });
     }
 
-    public async Task<List<Tarefa>> ListarTodasAsync()
+    public async Task<List<Tarefa>> ListarPorUsuarioAsync(int usuarioId)
     {
         var client = await CriarClienteAsync();
-        var resultado = await client.Execute("SELECT id, titulo, prioridade, prazo , status, criado_em FROM tarefas ORDER BY id DESC");
+        var resultado = await client.Execute(
+            """
+            SELECT id, titulo, prioridade, COALESCE(prazo, ''), status, COALESCE(criado_em, '')
+            FROM tarefas
+            WHERE usuario_id = ?
+            ORDER BY id DESC
+            """,
+            new object?[] { usuarioId }
+        );
 
         var tarefas = new List<Tarefa>();
         foreach (var row in resultado.Rows)
@@ -40,67 +49,56 @@ public class TarefaRepository
         return tarefas;
     }
 
-    public async Task<Tarefa?> BuscarPorIdAsync(int id)
+    public async Task<Tarefa> CriarAsync(CriarTarefaDto dto, int usuarioId)
     {
         var client = await CriarClienteAsync();
-        var resultado = await client.Execute(
-            "SELECT id, titulo, prioridade, prazo, status, criado_em FROM tarefas WHERE id = ?",
-            new object?[] { id }
-            );
-        var row = resultado.Rows.FirstOrDefault();
-        return row is null ? null : MapearTarefa(row);
-    }
-
-    public async Task<Tarefa> CriarAsync(CriarTarefaDto dto)
-    {
-        var client = await CriarClienteAsync();
-
-        // Se o prazo vier vazio ("") do input date, salvamos como null no banco
         object? prazoValor = string.IsNullOrWhiteSpace(dto.Prazo) ? null : dto.Prazo;
 
         var resultado = await client.Execute(
             """
-            INSERT INTO tarefas (titulo, prioridade, prazo, status) VALUES (?,?,?, 'a-fazer') RETURNING id, titulo, prioridade , prazo ,status, criado_em
+            INSERT INTO tarefas (titulo, prioridade, prazo, status, usuario_id)
+            VALUES (?, ?, ?, 'a-fazer', ?)
+            RETURNING id, titulo, prioridade, COALESCE(prazo, ''), status, COALESCE(criado_em, '')
             """,
-            new object?[] { dto.Titulo.Trim(), dto.Prioridade, prazoValor! }
+            new object?[] { dto.Titulo.Trim(), dto.Prioridade, prazoValor!, usuarioId }
         );
 
         return MapearTarefa(resultado.Rows.First());
     }
 
-    public async Task<bool> AtualizarStatusAsync(int id, string novoStatus)
+    public async Task<bool> AtualizarStatusAsync(int id, int usuarioId, string novoStatus)
     {
         var client = await CriarClienteAsync();
         var resultado = await client.Execute(
-            "UPDATE tarefas SET status = ? WHERE id = ?",
-            new object?[] { novoStatus, id }
+            "UPDATE tarefas SET status = ? WHERE id = ? AND usuario_id = ? RETURNING id",
+            new object?[] { novoStatus, id, usuarioId }
         );
 
-        return resultado.RowsAffected > 0;
+        return resultado.Rows.FirstOrDefault() is not null;
     }
 
-    public async Task<bool> ExcluirAsync(int id)
+    public async Task<bool> ExcluirAsync(int id, int usuarioId)
     {
         var client = await CriarClienteAsync();
         var resultado = await client.Execute(
-            "DELETE FROM tarefas WHERE id = ?",
-            new object?[] { id }
+            "DELETE FROM tarefas WHERE id = ? AND usuario_id = ? RETURNING id",
+            new object?[] { id, usuarioId }
         );
 
-        return resultado.RowsAffected > 0;
+        return resultado.Rows.FirstOrDefault() is not null;
     }
 
-    // Converte uma linha retornada pelo libSQL para o nosso objeto C#
     private static Tarefa MapearTarefa(IEnumerable<Libsql.Client.Value> row)
     {
         var colunas = row.ToList();
+        var prazoTexto = colunas[3] is Text prazo ? prazo.Value : string.Empty;
 
         return new Tarefa
         {
             Id = colunas[0] is Integer id ? Convert.ToInt32(id.Value) : 0,
             Titulo = colunas[1] is Text titulo ? titulo.Value : string.Empty,
             Prioridade = colunas[2] is Text prioridade ? prioridade.Value : "media",
-            Prazo = colunas[3] is Text prazo ? prazo.Value : null,
+            Prazo = string.IsNullOrWhiteSpace(prazoTexto) ? null : prazoTexto,
             Status = colunas[4] is Text status ? status.Value : "a-fazer",
             Criado_em = colunas[5] is Text criadoEm ? criadoEm.Value : string.Empty
         };
