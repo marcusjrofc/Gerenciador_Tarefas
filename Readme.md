@@ -6,8 +6,6 @@ Aplicação full-stack de gerenciamento de tarefas com cadastro e autenticação
 
 🔗 **Acesse a aplicação:** [Gerenciador_de_tarefas](https://gerenciadortarefas-h5kg6k1oc-marcus-dev3.vercel.app/)
 
-> *(Substitua o link acima pela URL gerada após o deploy na Vercel)*
-
 ## Funcionalidades
 
 - **Autenticação de Usuários:** Cadastro com validação de senha forte em tempo real e login com persistência de sessão via `localStorage`.
