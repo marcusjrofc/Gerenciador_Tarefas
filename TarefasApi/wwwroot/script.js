@@ -232,7 +232,7 @@ formRedefinirSenha.addEventListener('submit', async(e) => {
     }
 
     try {
-        const resposta = await fetch(`${API_BASE}/auth/esqueci-senha`, {
+        const resposta = await fetch(`${API_BASE}/auth/redefinir-senha`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email ,codigo, novaSenha})
