@@ -34,7 +34,8 @@
                 <label for="cad-senha">Senha</label>
                 <div class="campo-senha">
                     <input type="password" id="cad-senha" placeholder="Crie uma senha forte" minlength="8" required>
-                    <button type="button" class="btn-olho" data-alvo="cad-senha" aria-label="Mostrar ou ocultar senha">👁️</button>
+                    <button type="button" class="btn-olho" data-alvo="cad-senha"
+                        aria-label="Mostrar ou ocultar senha">👁️</button>
                 </div>
 
                 <ul class="requisitos-senha">
@@ -63,7 +64,8 @@
                 <label for="login-senha">Senha</label>
                 <div class="campo-senha">
                     <input type="password" id="login-senha" placeholder="Sua senha" required>
-                    <button type="button" class="btn-olho" data-alvo="login-senha" aria-label="Mostrar ou ocultar senha">👁️</button>
+                    <button type="button" class="btn-olho" data-alvo="login-senha"
+                        aria-label="Mostrar ou ocultar senha">👁️</button>
                 </div>
 
                 <button type="submit" class="btn-auth">Entrar</button>
@@ -71,6 +73,41 @@
 
             <p class="troca-auth">
                 Ainda não tem conta? <a href="#" id="ir-para-cadastro">Cadastre-se</a>
+            </p>
+            <p class="troca-auth">
+                <a href="#" id="ir-para-recuperar">Esqueci minha senha</a>
+            </p>
+        </div>
+
+        <!-- CARD DE RECUPERAR SENHA -->
+        <div id="card-recuperar" class="card" style="display: none;">
+            <h2>Recuperar Senha</h2>
+
+            <form id="form-esqueci-senha">
+                <label for="rec-email">Email cadastrado</label>
+                <input type="email" id="rec-email" placeholder="seu@email.com" required>
+                <button type="submit" class="btn-auth">Gerar código</button>
+            </form>
+
+            <form id="form-redefinir-senha" style="display: none;">
+                <p id="aviso-codigo"></p>
+
+                <label for="rec-codigo">Código de 6 dígitos</label>
+                <input type="text" id="rec-codigo" placeholder="000000" maxlength="6" required>
+
+                <label for="rec-nova-senha">Nova senha</label>
+                <div class="campo-senha">
+                    <input type="password" id="rec-nova-senha" placeholder="Crie uma senha forte" minlength="8"
+                        required>
+                    <button type="button" class="btn-olho" data-alvo="rec-nova-senha"
+                        aria-label="Mostrar ou ocultar senha">👁️</button>
+                </div>
+
+                <button type="submit" class="btn-auth">Salvar nova senha</button>
+            </form>
+
+            <p class="troca-auth">
+                Lembrou a senha? <a href="#" id="voltar-para-login">Voltar para o login</a>
             </p>
         </div>
     </section>

@@ -10,6 +10,7 @@ const telaAuth = document.getElementById('tela-auth');
 const telaApp = document.getElementById('tela-app');
 const cardCadastro = document.getElementById('card-cadastro');
 const cardLogin = document.getElementById('card-login');
+const cardRecuperar = document.getElementById('card-recuperar');
 
 // Elementos do App
 const usuarioNomeSpan = document.getElementById('usuario-nome');
@@ -34,6 +35,20 @@ document.getElementById('ir-para-cadastro').addEventListener('click', (e) => {
     e.preventDefault();
     cardLogin.style.display = 'none';
     cardCadastro.style.display = 'block';
+});
+
+document.getElementById('ir-para-recuperar').addEventListener('click', (e) => {
+    e.preventDefault();
+    cardLogin.style.display = 'none';
+    cardRecuperar.style.display = 'block';
+    document.getElementById('form-esqueci-senha').style.display = 'block';
+    document.getElementById('form-redefinir-senha').style.display = 'none';
+});
+
+document.getElementById('voltar-para-login').addEventListener('click', (e) => {
+    e.preventDefault();
+    cardRecuperar.style.display = 'none';
+    cardLogin.style.display = 'block';
 });
 
 // 3. Mostrar / Ocultar senha
@@ -157,6 +172,85 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
         entrarNoApp(usuario);
     } catch (erro) {
         console.error('Erro no login:', erro);
+        alert('Não foi possível conectar ao servidor.');
+    }
+});
+
+// 6.5 Recuperar Senha
+const formEsqueciSenha = document.getElementById('form-esqueci-senha');
+const formRedefinirSenha = document.getElementById('form-redefinir-senha');
+const avisoCodigo = document.getElementById('aviso-codigo');
+
+function senhaForteValida(valor) {
+    return (
+        valor.length >= 8 &&
+        /[A-Z]/.test(valor) &&
+        /[a-z]/.test(valor) &&
+        /\d/.test(valor) &&
+        /[!@#$%^&*(),.?"{}|<>]/.test(valor) &&
+        !valor.toLowerCase().includes('senha') &&
+        !valor.includes('123456')
+    );
+}
+
+formEsqueciSenha.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('rec-email').value.trim();
+
+    try {
+        const resposta = await fetch(`${API_BASE}/auth/esqueci-senha`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+
+        const dados = await resposta.json().catch(() => ({}));
+        if(!resposta.ok){
+            alert(dados.mensagem || 'Erro ao gerar código.');
+            return;
+        }
+
+        avisoCodigo.textContent = `Seu código é: ${dados.codigo} (válido por15 min)`;
+        formEsqueciSenha.style.display = 'none';
+        formRedefinirSenha.style.display = 'block';
+    } catch (erro) {
+        console.error('Erro ao gerar código:',erro);
+        alert('Não foi possível conectar ao servidor.');
+    }
+});
+
+formRedefinirSenha.addEventListener('submit', async(e) => {
+    e.preventDefault();
+
+    const email = document.getElementById('rec-email').value.trim();
+    const codigo = document.getElementById('rec-codigo').value.trim();
+    const novaSenha = document.getElementById('rec-nova-senha').value;
+
+    if(!senhaForteValida(novaSenha)){
+        alert('A nova senha não atende aos requisitos de segurança.');
+        return;
+    }
+
+    try {
+        const resposta = await fetch(`${API_BASE}/auth/esqueci-senha`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email ,codigo, novaSenha})
+    });
+    
+    const dados = await resposta.json().catch(() => ({}));
+        if(!resposta.ok){
+            alert(dados.mensagem || 'Erro ao redefinir senha.');
+            return;
+        }
+
+        alert('Senha alterada com sucesso! Agora faça login.');
+        formEsqueciSenha.reset();
+        formRedefinirSenha.reset();
+        cardRecuperar.style.display = 'none';
+        cardLogin.style.display = 'block';
+    }catch(erro){
+        console.error('Erro ao redefinir senha:',erro);
         alert('Não foi possível conectar ao servidor.');
     }
 });
