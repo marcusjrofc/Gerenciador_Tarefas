@@ -60,6 +60,30 @@ app.MapPost("/auth/login", async (LoginDto dados, UsuarioRepository repo) =>
     return Results.Ok(new { usuario.Id, usuario.Nome, usuario.Email, usuario.Role });
 });
 
+// 2.1 Gerar código de recuperação (POST /auth/esqueci-senha)
+app.MapPost("/auth/esqueci-senha",async(EsqueciSenhaDto dados, UsuarioRepository repo) =>
+{
+    var usuario = await repo.BuscarPorEmailAsync(dados.Email);
+    var expiracao = DateTime.UtcNow.AddMinutes(15).ToString("0");
+
+    await repo.SalvarCodigoResetAsync(dados.Email, codigo, expiracao);
+    return Results.Ok(new
+    {
+        mensagem = "Código gerdo com sucesso.",
+        codigo
+    });
+    });
+
+// 2.2 Redefinir senha com o código (POST /auth/redefinir-senha)
+app.MapPost("/auth/redefinir-senha",async (RedefinirSenhaDto dados, UsuarioRepository repo) =>
+{
+    var atualizou = await repo.RedefinirSenhaAsync(dados.Email, dados.Codigo, dados.NovaSenha);
+    if(!atualizou) return Results.BadRequest(new { mensagem = "Código inválido ou expirado." });
+
+    return Results.Ok(new{ mensagem = "Senha atualizada com sucesso!"});
+});
+
+
 // 3. Listar tarefas do usuário (GET /tarefas)
 app.MapGet("/tarefas", async (HttpRequest req, TarefaRepository repo) =>
 {
@@ -104,3 +128,5 @@ app.MapControllers();
 app.Run();
 
 record AtualizacaoStatus(string Status);
+record EsqueciSenhaDto(string Email);
+record RedefinirSenhaDto(string Email, string Codigo, string NovaSenha);
