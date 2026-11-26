@@ -3,10 +3,12 @@ using TarefasApi.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
+builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
-// Libera o front-end da Vercel para acessar esta API
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -31,9 +33,10 @@ app.UseCors();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-// ... (mantenha todas as suas rotas /auth/cadastro, /auth/login e /tarefas aqui) ...
+app.MapControllers();
 
-var port = Environment.GetEnvironmentVariable("PORT") ?? "5050";
-app.Run($"http://0.0.0.0:{port}");
+// Mantenha aqui todas as suas rotas (/auth/cadastro, /auth/login e /tarefas)
+
+app.Run();
 
 record AtualizacaoStatus(string Status);
