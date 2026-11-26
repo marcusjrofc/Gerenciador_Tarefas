@@ -1,31 +1,122 @@
-# ✅ Gerenciador de Tarefas
+# Gerenciador de Tarefas
 
-Aplicação web simples e responsiva para organização de tarefas diárias, com controle de prioridades, acompanhamento de prazos e persistência de dados no navegador.
+Aplicação full-stack de gerenciamento de tarefas com cadastro e autenticação de usuários, desenvolvida com **ASP.NET Core**, **Turso (libSQL)** e front-end integrado em **HTML, CSS e JavaScript**.
 
-🔗 **Acesse o projeto online:** [Clique aqui para visualizar](https://gerenciadortarefas-eosin.vercel.app/)
+## Demonstração Online
 
-## 🚀 Funcionalidades
+🔗 **Acesse a aplicação:** [https://SEU-LINK-AQUI.vercel.app](https://SEU-LINK-AQUI.vercel.app)
 
-- **Cadastro de Tarefas:** Adicione tarefas definindo título, nível de prioridade (*Baixa*, *Média* ou *Alta*) e data limite.
-- **Fluxo de Status:** Alterne rapidamente o progresso entre **A fazer**, **Fazendo** e **Feito**, com atualização automática do contador de pendências.
-- **Alerta de Prazos:** Identificação visual automática para tarefas vencidas e ainda não concluídas.
-- **Filtros Combinados:** Busque por título em tempo real e filtre simultaneamente por status e prioridade.
-- **Persistência Local:** Dados salvos automaticamente no `localStorage` do navegador, mantendo as tarefas intactas mesmo após fechar ou atualizar a página.
-- **Design Responsivo:** Interface adaptável para desktop e dispositivos móveis.
+> *(Substitua o link acima pela URL gerada após o deploy na Vercel)*
 
-## 🛠️ Tecnologias Utilizadas
+## Funcionalidades
 
-- **HTML5:** Estruturação semântica da interface.
-- **CSS3:** Estilização com Flexbox, variáveis CSS e Media Queries.
-- **JavaScript (Vanilla JS):** Manipulação do DOM, gerenciamento de estado, tratamento de datas e integração com `localStorage`.
+- **Autenticação de Usuários:** Cadastro com validação de senha forte em tempo real e login com persistência de sessão via `localStorage`.
+- **Isolamento por Usuário:** Cada usuário visualiza, cria, atualiza e exclui apenas as próprias tarefas (`usuario_id`).
+- **Gerenciamento de Tarefas (CRUD):**
+  - Criação de tarefas com título, nível de prioridade (`baixa`, `media`, `alta`) e prazo opcional.
+  - Progressão de status com um clique (`A fazer` → `Fazendo` → `Feito`).
+  - Exclusão de tarefas e destaque automático para itens atrasados.
+- **Filtros e Busca:** Filtragem instantânea por título, status e prioridade, além de contador dinâmico de pendências.
 
-## 📁 Estrutura do Projeto
+## Tecnologias Utilizadas
+
+- **Back-end:** C# / ASP.NET Core (Minimal APIs)
+- **Banco de Dados:** Turso (libSQL / SQLite distribuído) via `Libsql.Client`
+- **Segurança:** Criptografia de senhas com `PasswordHasher` (`Microsoft.AspNetCore.Identity`)
+- **Front-end:** HTML5, CSS3 e JavaScript
+- **Infraestrutura e Deploy:** Docker (back-end no Render) e hospedagem estática (front-end na Vercel)
+
+## Estrutura do Projeto
 
 ```text
 Gerenciador_Tarefas/
-├── index.html        # Estrutura principal da aplicação
-├── css/
-│   └── style.css     # Estilos, variáveis de cores e responsividade
-├── js/
-│   └── script.js     # Lógica de estado, filtros, datas e localStorage
-└── README.md         # Documentação do projeto
+├── TarefasApi/
+│   ├── DTOs/             # Objetos de transferência (AuthDtos, CriarTarefaDto)
+│   ├── Models/           # Modelos de domínio (Usuario, Tarefa)
+│   ├── Repositories/     # Acesso ao banco Turso (UsuarioRepository, TarefaRepository)
+│   ├── wwwroot/          # Front-end (index.html, style.css, script.js)
+│   ├── Dockerfile        # Configuração de container para deploy da API
+│   ├── Program.cs        # Configuração da API, CORS e rotas HTTP
+│   └── TarefasApi.csproj
+├── .gitignore
+└── README.md
+```
+
+## Como Executar Localmente
+
+### Pré-requisitos
+
+- [.NET SDK](https://dotnet.microsoft.com/download) (8.0 ou superior)
+- Uma conta e um banco de dados criados no [Turso](https://turso.tech/)
+
+### 1. Estrutura do Banco de Dados (Turso)
+
+Certifique-se de que as tabelas `usuarios` e `tarefas` estejam criadas no seu banco:
+
+```sql
+CREATE TABLE usuarios (
+    id INTEGER PRIMARY KEY,
+    nome TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    data_nascimento TEXT NOT NULL,
+    genero TEXT NOT NULL,
+    senha_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'user'
+);
+
+CREATE TABLE tarefas (
+    id INTEGER PRIMARY KEY,
+    usuario_id INTEGER REFERENCES usuarios(id),
+    titulo TEXT NOT NULL,
+    prioridade TEXT NOT NULL DEFAULT 'media' CHECK (prioridade IN ('baixa', 'media', 'alta')),
+    prazo TEXT,
+    status TEXT NOT NULL DEFAULT 'a-fazer' CHECK (status IN ('a-fazer', 'fazendo', 'feito')),
+    criado_em TEXT NOT NULL DEFAULT (datetime('now'))
+);
+```
+
+### 2. Configurar Credenciais
+
+Crie o arquivo `TarefasApi/appsettings.Development.json` (ignorado pelo Git) com a URL em formato `https://` e o token do seu banco Turso:
+
+```json
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "Turso": {
+    "Url": "[https://seu-banco.turso.io](https://seu-banco.turso.io)",
+    "Token": "seu-token-aqui"
+  }
+}
+```
+
+### 3. Iniciar a Aplicação
+
+No terminal, entre na pasta da API e execute o projeto:
+
+```bash
+cd TarefasApi
+dotnet run
+```
+
+Acesse **`http://localhost:5050`** no navegador.
+
+## Deploy em Produção (Render + Vercel)
+
+- **Back-end (Render):** Publicado como *Web Service* via Docker com **Root Directory** em `TarefasApi` e variáveis de ambiente `Turso__Url` e `Turso__Token`.
+- **Front-end (Vercel):** Publicado apontando o **Root Directory** para `TarefasApi/wwwroot`, consumindo a URL pública da API configurada em `API_BASE` no `script.js`.
+
+## Endpoints da API
+
+| Método | Rota | Descrição |
+| :--- | :--- | :--- |
+| `POST` | `/auth/cadastro` | Cadastra um novo usuário |
+| `POST` | `/auth/login` | Autentica o usuário e retorna seus dados |
+| `GET` | `/tarefas` | Lista as tarefas do usuário (`Header: X-Usuario-Id`) |
+| `POST` | `/tarefas` | Cria uma nova tarefa (`Header: X-Usuario-Id`) |
+| `PUT` | `/tarefas/{id}/status` | Atualiza o status da tarefa (`Header: X-Usuario-Id`) |
+| `DELETE` | `/tarefas/{id}` | Remove uma tarefa (`Header: X-Usuario-Id`) |
