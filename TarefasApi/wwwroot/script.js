@@ -1,5 +1,9 @@
 // 1. Configuração da API e Estado
-const API_TAREFAS = '/tarefas';
+const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? ''
+    : 'https://gerenciador-tarefas-8kvh.onrender.com';
+
+const API_TAREFAS = `${API_BASE}/tarefas`;
 let tarefas = [];
 let usuarioLogado = null;
 
@@ -100,7 +104,7 @@ document.getElementById('form-cadastro').addEventListener('submit', async (e) =>
     };
 
     try {
-        const resposta = await fetch('/auth/cadastro', {
+        const resposta = await fetch(`${API_BASE}/auth/cadastro`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(dadosCadastro)
@@ -133,7 +137,7 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
     };
 
     try {
-        const resposta = await fetch('/auth/login', {
+        const resposta = await fetch(`${API_BASE}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(dadosLogin)
