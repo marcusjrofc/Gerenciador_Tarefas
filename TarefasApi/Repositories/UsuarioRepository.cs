@@ -13,8 +13,10 @@ public class UsuarioRepository
 
     public UsuarioRepository(IConfiguration configuration)
     {
-        _url = configuration["Turso:Url"]
+        var rawUrl = configuration["Turso:Url"]
             ?? throw new InvalidOperationException("URL do Turso não configurada.");
+        _url = rawUrl.Replace("libsql://", "https://");
+
         _token = configuration["Turso:Token"]
             ?? throw new InvalidOperationException("Token do Turso não configurado.");
     }
