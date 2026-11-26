@@ -1,3 +1,4 @@
+using System.Globalization;
 using Libsql.Client;
 using Microsoft.AspNetCore.Identity;
 using TarefasApi.Dtos;
@@ -92,6 +93,48 @@ public class UsuarioRepository
         );
 
         return resultado.RowsAffected > 0;
+    }
+
+    public async Task SalvarCodigoResetAsync(string email, string codigo, string expiracao)
+    {
+        var client = await CriarClienteAsync();
+        await client.Execute(
+            "UPDATE usuarios SET reset_code = ?, reset_code_expiry = ? WHERE email = ?",
+            new object?[] { codigo, expiracao, email.Trim().ToLowerInvariant() }
+        );
+    }
+
+    public async Task<bool> RedefinirSenhaAsync(string email, string codigo, string NovaSenha)
+    {
+        var emailNormalizado = email.Trim().ToLowerInvariant();
+        var client = await CriarClienteAsync();
+
+        var resultado = await client.Execute(
+            "SELECT reset_code, reset_code_expiry FROM usuarios WHERE email ?",
+            new object?[] { emailNormalizado }
+        );
+
+        var row = resultado.Rows.FirstOrDefault();
+        if (row is null) return false;
+
+        var colunas = row.ToList();
+        var codigoSalvo = colunas[0] is Text c ? c.Value : null;
+        var expiracaoSalva = colunas[1] is Text e ? e.Value : null;
+
+        if (string.IsNullOrEmpty(codigoSalvo) || codigoSalvo != codigo.Trim())
+            return false;
+
+        if (!DateTime.TryParse(expiracaoSalva, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var expiraEm) || DateTime.UtcNow > expiraEm)
+            return false;
+
+        var usuarioTemp = new Usuario { Email = emailNormalizado };
+        var NovaSenhaHash = _hasher.HashPassword(usuarioTemp, NovaSenha);
+
+        var atualizacao = await client.Execute(
+            "UPDATE usuarios SET senha_hash = ?, reset_code = NULL, reset_code_expiry = NULL WHERE email = ?",
+            new object?[] { NovaSenhaHash, emailNormalizado }
+        );
+        return atualizacao.RowsAffected > 0;
     }
 
     private static Usuario MapearUsuario(IEnumerable<Libsql.Client.Value> row)
