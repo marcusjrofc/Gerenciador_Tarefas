@@ -61,18 +61,23 @@ app.MapPost("/auth/login", async (LoginDto dados, UsuarioRepository repo) =>
 });
 
 // 2.1 Gerar código de recuperação (POST /auth/esqueci-senha)
-app.MapPost("/auth/esqueci-senha",async(EsqueciSenhaDto dados, UsuarioRepository repo) =>
+app.MapPost("/auth/esqueci-senha", async (EsqueciSenhaDto dados, UsuarioRepository repo) =>
 {
     var usuario = await repo.BuscarPorEmailAsync(dados.Email);
-    var expiracao = DateTime.UtcNow.AddMinutes(15).ToString("0");
+    if (usuario is null)
+        return Results.NotFound(new { mensagem = "E-mail não encontrado." });
+
+    var codigo = Random.Shared.Next(100000, 1000000).ToString();
+    var expiracao = DateTime.UtcNow.AddMinutes(15).ToString("O");
 
     await repo.SalvarCodigoResetAsync(dados.Email, codigo, expiracao);
+
     return Results.Ok(new
     {
-        mensagem = "Código gerdo com sucesso.",
+        mensagem = "Código gerado com sucesso.",
         codigo
     });
-    });
+});
 
 // 2.2 Redefinir senha com o código (POST /auth/redefinir-senha)
 app.MapPost("/auth/redefinir-senha",async (RedefinirSenhaDto dados, UsuarioRepository repo) =>
