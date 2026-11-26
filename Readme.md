@@ -4,7 +4,7 @@ Aplicação full-stack de gerenciamento de tarefas com cadastro e autenticação
 
 ## Demonstração Online
 
-🔗 **Acesse a aplicação:** [https://SEU-LINK-AQUI.vercel.app](https://gerenciadortarefas-h5kg6k1oc-marcus-dev3.vercel.app/)
+🔗 **Acesse a aplicação:** [Gerenciador de_tarefas](https://gerenciadortarefas-h5kg6k1oc-marcus-dev3.vercel.app/)
 
 > *(Substitua o link acima pela URL gerada após o deploy na Vercel)*
 
