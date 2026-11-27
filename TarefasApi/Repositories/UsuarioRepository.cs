@@ -104,7 +104,7 @@ public class UsuarioRepository
         );
     }
 
-    public async Task<bool> RedefinirSenhaAsync(string email, string codigo, string NovaSenha)
+    public async Task<(bool Sucesso, string Mensagem)> RedefinirSenhaAsync(string email, string codigo, string novaSenha)
     {
         var emailNormalizado = email.Trim().ToLowerInvariant();
         var client = await CriarClienteAsync();
@@ -115,26 +115,42 @@ public class UsuarioRepository
         );
 
         var row = resultado.Rows.FirstOrDefault();
-        if (row is null) return false;
+        if (row is null)
+            return (false, $"Usuário não encontrado para o e-mail '{emailNormalizado}'.");
 
         var colunas = row.ToList();
-        var codigoSalvo = colunas[0] is Text c ? c.Value : null;
+        var codigoSalvo = colunas[0] switch
+        {
+            Text c => c.Value,
+            Integer i => i.Value.ToString(),
+            _ => null
+        };
         var expiracaoSalva = colunas[1] is Text e ? e.Value : null;
 
-        if (string.IsNullOrEmpty(codigoSalvo) || codigoSalvo != codigo.Trim())
-            return false;
+        if (string.IsNullOrEmpty(codigoSalvo))
+            return (false, "Nenhum código está salvo no banco para este usuário.");
 
-        if (!DateTime.TryParse(expiracaoSalva, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var expiraEm) || DateTime.UtcNow > expiraEm)
-            return false;
+        if (codigoSalvo.Trim() != codigo.Trim())
+            return (false, "O código digitado não confere com o código salvo.");
+
+        if (!DateTimeOffset.TryParse(expiracaoSalva, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var expiraEm))
+            return (false, $"Data de expiração inválida no banco: '{expiracaoSalva}'.");
+
+        if (DateTimeOffset.UtcNow > expiraEm)
+            return (false, "Código expirado. Gere um novo código e tente novamente.");
 
         var usuarioTemp = new Usuario { Email = emailNormalizado };
-        var NovaSenhaHash = _hasher.HashPassword(usuarioTemp, NovaSenha);
+        var novaSenhaHash = _hasher.HashPassword(usuarioTemp, novaSenha);
 
         var atualizacao = await client.Execute(
             "UPDATE usuarios SET senha_hash = ?, reset_code = NULL, reset_code_expiry = NULL WHERE email = ?",
-            new object?[] { NovaSenhaHash, emailNormalizado }
+            new object?[] { novaSenhaHash, emailNormalizado }
         );
-        return atualizacao.RowsAffected > 0;
+
+        if (atualizacao.RowsAffected <= 0)
+            return (false, "Código validado, mas o banco não atualizou a senha.");
+
+        return (true, "Senha atualizada com sucesso!");
     }
 
     private static Usuario MapearUsuario(IEnumerable<Libsql.Client.Value> row)

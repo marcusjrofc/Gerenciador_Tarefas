@@ -84,10 +84,10 @@ app.MapPost("/auth/redefinir-senha", async (RedefinirSenhaDto dados, UsuarioRepo
 {
     try
     {
-        var atualizou = await repo.RedefinirSenhaAsync(dados.Email, dados.Codigo, dados.NovaSenha);
-        if (!atualizou) return Results.BadRequest(new { mensagem = "Código inválido ou expirado." });
+        var (sucesso, mensagem) = await repo.RedefinirSenhaAsync(dados.Email, dados.Codigo, dados.NovaSenha);
+        if (!sucesso) return Results.BadRequest(new { mensagem });
 
-        return Results.Ok(new { mensagem = "Senha atualizada com sucesso!" });
+        return Results.Ok(new { mensagem });
     }
     catch (Exception ex)
     {
