@@ -43,6 +43,18 @@ public class UsuarioRepository
         return row is null ? null : MapearUsuario(row);
     }
 
+    public async Task<Usuario?> BuscarPorIdAsync(int id)
+    {
+        var client = await CriarClienteAsync();
+        var resultado = await client.Execute(
+            "SELECT id, nome, email, data_nascimento, genero, senha_hash, role FROM usuarios WHERE id = ?",
+            new object?[] { id }
+        );
+
+        var row = resultado.Rows.FirstOrDefault();
+        return row is null ? null : MapearUsuario(row);
+    }
+
     public async Task<Usuario> CriarAsync(CadastroDto dto)
     {
         var client = await CriarClienteAsync();
