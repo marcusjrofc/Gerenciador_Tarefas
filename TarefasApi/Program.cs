@@ -40,6 +40,16 @@ static bool TryObterUsuarioId(HttpRequest req, out int usuarioId)
     return req.Headers.TryGetValue("X-Usuario-Id", out var valor)
     && int.TryParse(valor.ToString(), out usuarioId);
 }
+static int? CalcularIdade(string dataNascimento)
+{
+    if (!DateOnly.TryParse(dataNascimento, out var nascimento))
+        return null;
+
+    var hoje = DateOnly.FromDateTime(DateTime.Today);
+    var idade = hoje.Year - nascimento.Year;
+    if (nascimento > hoje.AddYears(-idade)) idade--;
+    return idade;
+}
 
 // 1. Cadastro (POST /auth/cadastro)
 app.MapPost("/auth/cadastro", async (CadastroDto dados, UsuarioRepository repo) =>
@@ -125,12 +135,36 @@ app.MapPut("/tarefas/{id}/status", async (int id, AtualizacaoStatus body, HttpRe
 });
 
 // 6. Excluir tarefa (DELETE /tarefas/{id})
-app.MapDelete("/tarefas/{id}", async(int id, HttpRequest req, TarefaRepository repo) =>
+app.MapDelete("/tarefas/{id}", async (int id, HttpRequest req, TarefaRepository repo) =>
 {
-   if(!TryObterUsuarioId(req, out var usuarioId)) return Results.Unauthorized();
+    if (!TryObterUsuarioId(req, out var usuarioId)) return Results.Unauthorized();
 
-   var excluiu = await repo.ExcluirAsync(id, usuarioId);
-   return excluiu ? Results.NoContent() : Results.NotFound(); 
+    var excluiu = await repo.ExcluirAsync(id, usuarioId);
+    return excluiu ? Results.NoContent() : Results.NotFound();
+});
+
+// 7. Listar usuários cadastrados (somente admin - GET /admin/usuarios)
+app.MapGet("/admin/usuarios", async (HttpRequest req, UsuarioRepository repo) =>
+{
+    if (!TryObterUsuarioId(req, out var usuarioId))
+        return Results.Unauthorized();
+
+    var solicitante = await repo.BuscarPorIdAsync(usuarioId);
+    if (solicitante is null || solicitante.Role != "admin")
+        return Results.StatusCode(403);
+
+    var usuarios = await repo.ListarTodosAsync();
+    var listaSegura = usuarios.Select(u => new
+    {
+        u.Id,
+        u.Nome,
+        u.Email,
+        u.Genero,
+        Idade = CalcularIdade(u.DataNascimento),
+        u.Role
+    });
+
+    return Results.Ok(listaSegura);
 });
 
 app.MapControllers();
