@@ -143,11 +143,11 @@ public class UsuarioRepository
         var novaSenhaHash = _hasher.HashPassword(usuarioTemp, novaSenha);
 
         var atualizacao = await client.Execute(
-            "UPDATE usuarios SET senha_hash = ?, reset_code = NULL, reset_code_expiry = NULL WHERE email = ?",
+            "UPDATE usuarios SET senha_hash = ?, reset_code = NULL, reset_code_expiry = NULL WHERE email = ? RETURNING id",
             new object?[] { novaSenhaHash, emailNormalizado }
         );
 
-        if (atualizacao.RowsAffected <= 0)
+        if (!atualizacao.Rows.Any())
             return (false, "Código validado, mas o banco não atualizou a senha.");
 
         return (true, "Senha atualizada com sucesso!");
