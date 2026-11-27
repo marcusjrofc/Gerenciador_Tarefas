@@ -23,6 +23,8 @@ const filtroStatus = document.getElementById('filtro-status');
 const filtroPrioridade = document.getElementById('filtro-prioridade');
 const contador = document.getElementById('contador');
 const listaTarefas = document.getElementById('lista-tarefas');
+const painelAdmin = document.getElementById('painel-admin');
+const listaUsuarios = document.getElementById('lista-usuarios');
 
 // 2. Alternar entre Cadastro e Login
 document.getElementById('ir-para-login').addEventListener('click', (e) => {
@@ -262,6 +264,14 @@ function entrarNoApp(usuario) {
     telaAuth.style.display = 'none';
     telaApp.style.display = 'block';
     carregarTarefas();
+
+    if (usuario.role === 'admin') {
+        painelAdmin.style.display = 'block';
+        carregarUsuariosAdmin();
+    } else {
+        painelAdmin.style.display = 'none';
+        listaUsuarios.innerHTML = '';
+    }
 }
 
 document.getElementById('btn-sair').addEventListener('click', () => {
@@ -273,6 +283,8 @@ document.getElementById('btn-sair').addEventListener('click', () => {
     telaAuth.style.display = 'block';
     cardCadastro.style.display = 'none';
     cardLogin.style.display = 'block';
+    painelAdmin.style.display = 'none';
+    listaUsuarios.innerHTML = '';
 });
 
 function headersComUsuario(comJson = false) {
@@ -283,6 +295,47 @@ function headersComUsuario(comJson = false) {
         headers['Content-Type'] = 'application/json';
     }
     return headers;
+}
+
+async function carregarUsuariosAdmin() {
+    if (!usuarioLogado || usuarioLogado.role !== 'admin') return;
+
+    try {
+        const resposta = await fetch(`${API_BASE}/admin/usuarios`, {
+            headers: headersComUsuario()
+        });
+
+        if (!resposta.ok) throw new Error(`Erro HTTP: ${resposta.status}`);
+
+        const usuarios = await resposta.json();
+        listaUsuarios.innerHTML = '';
+
+        if (usuarios.length === 0) {
+            listaUsuarios.innerHTML = '<p class="vazio">Nenhum usuário cadastrado.</p>';
+            return;
+        }
+
+        usuarios.forEach(u => {
+            const item = document.createElement('div');
+            item.className = 'tarefa-card';
+            const textoIdade = u.idade !== null ? `${u.idade} anos` : 'Idade não informada';
+
+            item.innerHTML = `
+                <div class="tarefa-info">
+                    <h3>${u.nome} ${u.role === 'admin' ? '(Admin)' : ''}</h3>
+                    <div class="tarefa-meta">
+                        <span>${u.email}</span>
+                        <span>Gênero: ${u.genero}</span>
+                        <span>${textoIdade}</span>
+                    </div>
+                </div>
+            `;
+            listaUsuarios.appendChild(item);
+        });
+    } catch (erro) {
+        console.error('Erro ao carregar usuários:', erro);
+        listaUsuarios.innerHTML = '<p class="vazio">Não foi possível carregar os usuários.</p>';
+    }
 }
 
 // 8. CRUD de Tarefas vinculado ao usuário logado
