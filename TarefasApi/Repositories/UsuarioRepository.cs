@@ -110,7 +110,7 @@ public class UsuarioRepository
         var client = await CriarClienteAsync();
 
         var resultado = await client.Execute(
-            "SELECT reset_code, reset_code_expiry FROM usuarios WHERE = email ?",
+            "SELECT reset_code, reset_code_expiry FROM usuarios WHERE email = ?",
             new object?[] { emailNormalizado }
         );
 
