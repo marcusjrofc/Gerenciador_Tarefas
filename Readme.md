@@ -4,7 +4,7 @@ Aplicação full-stack de gerenciamento de tarefas com cadastro, autenticação,
 
 ## Demonstração Online
 
-🔗 **Acesse a aplicação:** [Gerenciador_de_tarefas](https://gerenciadortarefas-h5kg6k1oc-marcus-dev3.vercel.app/)
+🔗 **Acesse a aplicação:** [Gerenciador_de_tarefas](https://tarefas-api-dqhd.onrender.com/)
 
 ## Funcionalidades
 
