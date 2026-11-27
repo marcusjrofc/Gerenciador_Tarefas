@@ -1,6 +1,6 @@
 # Gerenciador de Tarefas
 
-Aplicação full-stack de gerenciamento de tarefas com cadastro e autenticação de usuários, desenvolvida com **ASP.NET Core**, **Turso (libSQL)** e front-end integrado em **HTML, CSS e JavaScript**.
+Aplicação full-stack de gerenciamento de tarefas com cadastro, autenticação, recuperação de senha e painel administrativo, desenvolvida com **ASP.NET Core**, **Turso (libSQL)** e front-end integrado em **HTML, CSS e JavaScript**.
 
 ## Demonstração Online
 
@@ -8,7 +8,9 @@ Aplicação full-stack de gerenciamento de tarefas com cadastro e autenticação
 
 ## Funcionalidades
 
-- **Autenticação de Usuários:** Cadastro com validação de senha forte em tempo real e login com persistência de sessão via `localStorage`.
+- **Autenticação de Usuários:** Cadastro com validação de senha forte em tempo real, opção inclusiva de gênero (`Homem`, `Mulher`, `Outro`), botão de mostrar/ocultar senha e login com persistência de sessão via `localStorage`.
+- **Recuperação de Senha:** Fluxo em duas etapas com geração de código de 6 dígitos (válido por 15 minutos) para redefinição segura de senha.
+- **Painel Administrativo:** Área exclusiva para usuários com `role = 'admin'` (validada no back-end), listando os usuários cadastrados com nome, e-mail, gênero e idade calculada — sem expor hashes de senha ou tarefas privadas.
 - **Isolamento por Usuário:** Cada usuário visualiza, cria, atualiza e exclui apenas as próprias tarefas (`usuario_id`).
 - **Gerenciamento de Tarefas (CRUD):**
   - Criação de tarefas com título, nível de prioridade (`baixa`, `media`, `alta`) e prazo opcional.
@@ -59,7 +61,9 @@ CREATE TABLE usuarios (
     data_nascimento TEXT NOT NULL,
     genero TEXT NOT NULL,
     senha_hash TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'user'
+    role TEXT NOT NULL DEFAULT 'user',
+    reset_code TEXT,
+    reset_code_expiry TEXT
 );
 
 CREATE TABLE tarefas (
@@ -71,6 +75,14 @@ CREATE TABLE tarefas (
     status TEXT NOT NULL DEFAULT 'a-fazer' CHECK (status IN ('a-fazer', 'fazendo', 'feito')),
     criado_em TEXT NOT NULL DEFAULT (datetime('now'))
 );
+```
+
+Para habilitar o painel administrativo em uma conta já cadastrada, atualize o campo `role` no Turso:
+
+```sql
+UPDATE usuarios
+SET role = 'admin'
+WHERE email = 'seu-email@exemplo.com';
 ```
 
 ### 2. Configurar Credenciais
@@ -101,7 +113,7 @@ cd TarefasApi
 dotnet run
 ```
 
-Acesse **`http://localhost:5050`** no navegador.
+Acesse **`http://localhost:10000`** no navegador (ou a porta definida na variável de ambiente `PORT`).
 
 ## Deploy em Produção (Render + Vercel)
 
@@ -113,8 +125,11 @@ Acesse **`http://localhost:5050`** no navegador.
 | Método | Rota | Descrição |
 | :--- | :--- | :--- |
 | `POST` | `/auth/cadastro` | Cadastra um novo usuário |
-| `POST` | `/auth/login` | Autentica o usuário e retorna seus dados |
+| `POST` | `/auth/login` | Autentica o usuário e retorna seus dados (incluindo `role`) |
+| `POST` | `/auth/esqueci-senha` | Gera um código de 6 dígitos válido por 15 minutos |
+| `POST` | `/auth/redefinir-senha` | Valida o código e atualiza a senha do usuário |
 | `GET` | `/tarefas` | Lista as tarefas do usuário (`Header: X-Usuario-Id`) |
 | `POST` | `/tarefas` | Cria uma nova tarefa (`Header: X-Usuario-Id`) |
 | `PUT` | `/tarefas/{id}/status` | Atualiza o status da tarefa (`Header: X-Usuario-Id`) |
 | `DELETE` | `/tarefas/{id}` | Remove uma tarefa (`Header: X-Usuario-Id`) |
+| `GET` | `/admin/usuarios` | Lista usuários cadastrados sem `senha_hash` (somente `admin`, `Header: X-Usuario-Id`) |
