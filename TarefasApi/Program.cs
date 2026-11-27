@@ -80,12 +80,19 @@ app.MapPost("/auth/esqueci-senha", async (EsqueciSenhaDto dados, UsuarioReposito
 });
 
 // 2.2 Redefinir senha com o código (POST /auth/redefinir-senha)
-app.MapPost("/auth/redefinir-senha",async (RedefinirSenhaDto dados, UsuarioRepository repo) =>
+app.MapPost("/auth/redefinir-senha", async (RedefinirSenhaDto dados, UsuarioRepository repo) =>
 {
-    var atualizou = await repo.RedefinirSenhaAsync(dados.Email, dados.Codigo, dados.NovaSenha);
-    if(!atualizou) return Results.BadRequest(new { mensagem = "Código inválido ou expirado." });
+    try
+    {
+        var atualizou = await repo.RedefinirSenhaAsync(dados.Email, dados.Codigo, dados.NovaSenha);
+        if (!atualizou) return Results.BadRequest(new { mensagem = "Código inválido ou expirado." });
 
-    return Results.Ok(new{ mensagem = "Senha atualizada com sucesso!"});
+        return Results.Ok(new { mensagem = "Senha atualizada com sucesso!" });
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { mensagem = $"Erro no servidor: {ex.Message}" }, statusCode: 500);
+    }
 });
 
 
