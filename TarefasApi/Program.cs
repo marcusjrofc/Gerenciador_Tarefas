@@ -1,11 +1,8 @@
-using System.Buffers.Text;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Microsoft.AspNetCore.Authentication;
 using TarefasApi.Dtos;
-using TarefasApi.Models;
 using TarefasApi.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -66,6 +63,12 @@ static int? CalcularIdade(string dataNascimento)
 // 1. Cadastro (POST /auth/cadastro)
 app.MapPost("/auth/cadastro", async (CadastroDto dados, UsuarioRepository repo) =>
 {
+    if (string.IsNullOrWhiteSpace(dados.Nome) || string.IsNullOrWhiteSpace(dados.Email))
+        return Results.BadRequest(new { mensagem = "Nome e e-mail são obrigatórios." });
+
+    if (!SenhaForteValida(dados.Senha))
+        return Results.BadRequest(new { mensagem = "A senha não atende aos requisitos de segurança." });
+
     var existente = await repo.BuscarPorEmailAsync(dados.Email);
     if (existente is not null) return Results.BadRequest(new { mensagem = "E-mail já cadastrado." });
 
@@ -165,15 +168,16 @@ app.MapPost("/tarefas", async (HttpRequest req, CriarTarefaDto dados, TokenServi
     return Results.Created($"/tarefas/{tarefaCriada.Id}", tarefaCriada);
 });
 
+var statusPermitidos = new HashSet<string> { "a-fazer", "fazendo", "feito" };
+
 // 5. Atualizar status (PUT /tarefas/{id}/status)
 app.MapPut("/tarefas/{id}/status", async (int id, AtualizacaoStatus body, HttpRequest req, TokenService tokenService, TarefaRepository repo) =>
 {
-    var statusPermitidos = new HashSet<string> { "a-fazer", "fazendo", "feito" };
 
     if (!tokenService.TryValidarToken(req, out var usuarioId)) return Results.Unauthorized();
 
-    if (string.IsNullOrWhiteSpace(body.Status) || !statusPermitidos.Contains(body.Status)) ;
-    return Results.BadRequest(new { mensagem = "Status inválido" });
+    if (string.IsNullOrWhiteSpace(body.Status) || !statusPermitidos.Contains(body.Status))
+        return Results.BadRequest(new { mensagem = "Status inválido" });
 
     var atualizou = await repo.AtualizarStatusAsync(id, usuarioId, body.Status);
     return atualizou ? Results.NoContent() : Results.NotFound();
@@ -196,7 +200,7 @@ app.MapGet("/admin/usuarios", async (HttpRequest req, TokenService tokenService,
 
     var solicitante = await repo.BuscarPorIdAsync(usuarioId);
     if (solicitante is null || solicitante.Role != "admin")
-        return Results.StatusCode(statusCode.StatusCode403Forbidden);
+        return Results.StatusCode(StatusCodes.Status403Forbidden);
 
     var usuarios = await repo.ListarTodosAsync();
     var listaSegura = usuarios.Select(u => new
@@ -255,7 +259,7 @@ sealed class TokenService
         if (!req.Headers.TryGetValue("Authorization", out var authHeader)) return false;
 
         var valor = authHeader.ToString();
-        if (!valor.StartsWith("Bearer", StringComparison.OrdinalIgnoreCase)) return false;
+        if (!valor.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) return false;
 
         var token = valor["Bearer ".Length..].Trim();
         var partes = token.Split('.');
@@ -280,6 +284,9 @@ sealed class TokenService
         {
             var payload = JsonSerializer.Deserialize<TokenPayload>(Base64UrlDecode(partes[1]));
             if (payload is null || payload.Uid <= 0)
+                return false;
+
+            if (DateTimeOffset.UtcNow.ToUnixTimeSeconds() > payload.Exp)
                 return false;
 
             usuarioId = payload.Uid;
