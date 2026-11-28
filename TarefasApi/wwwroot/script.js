@@ -26,6 +26,23 @@ const listaTarefas = document.getElementById('lista-tarefas');
 const painelAdmin = document.getElementById('painel-admin');
 const listaUsuarios = document.getElementById('lista-usuarios');
 
+function escapeHtml(texto) {
+    return String(texto ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function debounce(fn, atraso = 200) {
+    let timer;
+    return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), atraso);
+    };
+}
+
 // 2. Alternar entre Cadastro e Login
 document.getElementById('ir-para-login').addEventListener('click', (e) => {
     e.preventDefault();
@@ -189,7 +206,7 @@ function senhaForteValida(valor) {
         /[A-Z]/.test(valor) &&
         /[a-z]/.test(valor) &&
         /\d/.test(valor) &&
-        /[!@#$%^&*(),.?"{}|<>]/.test(valor) &&
+        /[!@#$%^&*(),.?":{}|<>]/.test(valor) &&
         !valor.toLowerCase().includes('senha') &&
         !valor.includes('123456')
     );
@@ -207,28 +224,28 @@ formEsqueciSenha.addEventListener('submit', async (e) => {
         });
 
         const dados = await resposta.json().catch(() => ({}));
-        if(!resposta.ok){
+        if (!resposta.ok) {
             alert(dados.mensagem || 'Erro ao gerar código.');
             return;
         }
 
-        avisoCodigo.textContent = `Seu código é: ${dados.codigo} (válido por15 min)`;
+        avisoCodigo.textContent = `Seu código é: ${dados.codigo} (válido por 15 min)`;
         formEsqueciSenha.style.display = 'none';
         formRedefinirSenha.style.display = 'block';
     } catch (erro) {
-        console.error('Erro ao gerar código:',erro);
+        console.error('Erro ao gerar código:', erro);
         alert('Não foi possível conectar ao servidor.');
     }
 });
 
-formRedefinirSenha.addEventListener('submit', async(e) => {
+formRedefinirSenha.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const email = document.getElementById('rec-email').value.trim();
     const codigo = document.getElementById('rec-codigo').value.trim();
     const novaSenha = document.getElementById('rec-nova-senha').value;
 
-    if(!senhaForteValida(novaSenha)){
+    if (!senhaForteValida(novaSenha)) {
         alert('A nova senha não atende aos requisitos de segurança.');
         return;
     }
@@ -237,11 +254,11 @@ formRedefinirSenha.addEventListener('submit', async(e) => {
         const resposta = await fetch(`${API_BASE}/auth/redefinir-senha`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email ,codigo, novaSenha})
-    });
-    
-    const dados = await resposta.json().catch(() => ({}));
-        if(!resposta.ok){
+            body: JSON.stringify({ email, codigo, novaSenha })
+        });
+
+        const dados = await resposta.json().catch(() => ({}));
+        if (!resposta.ok) {
             alert(dados.mensagem || 'Erro ao redefinir senha.');
             return;
         }
@@ -251,8 +268,8 @@ formRedefinirSenha.addEventListener('submit', async(e) => {
         formRedefinirSenha.reset();
         cardRecuperar.style.display = 'none';
         cardLogin.style.display = 'block';
-    }catch(erro){
-        console.error('Erro ao redefinir senha:',erro);
+    } catch (erro) {
+        console.error('Erro ao redefinir senha:', erro);
         alert('Não foi possível conectar ao servidor.');
     }
 });
@@ -274,95 +291,113 @@ function entrarNoApp(usuario) {
     }
 }
 
-document.getElementById('btn-sair').addEventListener('click', () => {
+function sairDoApp(avisoExpirado = false) {
     localStorage.removeItem('usuarioLogado');
     usuarioLogado = null;
     tarefas = [];
+    tarefasSincronizando.clear();
     listaTarefas.innerHTML = '';
+    listaUsuarios.innerHTML = '';
     telaApp.style.display = 'none';
     telaAuth.style.display = 'block';
     cardCadastro.style.display = 'none';
+    cardRecuperar.style.display = 'none';
     cardLogin.style.display = 'block';
     painelAdmin.style.display = 'none';
-    listaUsuarios.innerHTML = '';
-});
 
-function headersComUsuario(comJson = false) {
-    const headers = {
-        'X-Usuario-Id': String(usuarioLogado.id)
-    };
-    if (comJson) {
-        headers['Content-Type'] = 'application/json';
+    if (avisoExpirado) {
+        alert('Sua sessão expirou. Faça login novamente.');
     }
-    return headers;
+}
+
+document.getElementById('btn-sair').addEventListener('click', () => sairDoApp(false));
+
+async function fetchAutenticado(url, options = {}) {
+    const headers = {
+        Authorization: `Bearer ${usuarioLogado?.token ?? ''}`,
+        ...(options.headers || {})
+    };
+
+    const resposta = await fetch(url, { ...options, headers });
+
+    if (resposta.status === 401) {
+        sairDoApp(true);
+        throw new Error('Sessão expirada');
+    }
+
+    return resposta;
 }
 
 async function carregarUsuariosAdmin() {
     if (!usuarioLogado || usuarioLogado.role !== 'admin') return;
 
     try {
-        const resposta = await fetch(`${API_BASE}/admin/usuarios`, {
-            headers: headersComUsuario()
-        });
-
+        const resposta = await fetchAutenticado(`${API_BASE}/admin/usuarios`);
         if (!resposta.ok) throw new Error(`Erro HTTP: ${resposta.status}`);
 
         const usuarios = await resposta.json();
-        listaUsuarios.innerHTML = '';
 
         if (usuarios.length === 0) {
             listaUsuarios.innerHTML = '<p class="vazio">Nenhum usuário cadastrado.</p>';
             return;
         }
 
-        usuarios.forEach(u => {
+        const fragment = document.createDocumentFragment();
+        usuarios.forEach((u) => {
             const item = document.createElement('div');
             item.className = 'tarefa-card';
             const textoIdade = u.idade !== null ? `${u.idade} anos` : 'Idade não informada';
 
+
             item.innerHTML = `
                 <div class="tarefa-info">
-                    <h3>${u.nome} ${u.role === 'admin' ? '(Admin)' : ''}</h3>
+                    <h3>${escapeHtml(u.nome)} ${u.role === 'admin' ? '(Admin)' : ''}</h3>
                     <div class="tarefa-meta">
-                        <span>${u.email}</span>
-                        <span>Gênero: ${u.genero}</span>
+                        <span>${escapeHtml(u.email)}</span>
+                        <span>Gênero: ${escapeHtml(u.genero)}</span>
                         <span>${textoIdade}</span>
                     </div>
                 </div>
             `;
-            listaUsuarios.appendChild(item);
+            fragment.appendChild(item);
         });
+
+        listaUsuarios.replaceChildren(fragment);
     } catch (erro) {
+        if (erro.message === 'Sessão expirada') return;
         console.error('Erro ao carregar usuários:', erro);
         listaUsuarios.innerHTML = '<p class="vazio">Não foi possível carregar os usuários.</p>';
     }
 }
 
 // 8. CRUD de Tarefas vinculado ao usuário logado
+const tarefasSincronizando = new Set();
+let proximoTempId = -1;
+
 async function carregarTarefas() {
     if (!usuarioLogado) return;
 
     try {
-        const resposta = await fetch(API_TAREFAS, {
-            headers: headersComUsuario()
-        });
+        const resposta = await fetchAutenticado(API_TAREFAS);
         if (!resposta.ok) throw new Error(`Erro HTTP: ${resposta.status}`);
 
         tarefas = await resposta.json();
         renderizarTarefas();
     } catch (erro) {
+        if (erro.message === 'Sessão expirada') return;
         console.error('Erro ao carregar tarefas:', erro);
         listaTarefas.innerHTML = `<p class="vazio">Não foi possível conectar à API.</p>`;
     }
 }
 
-formTarefa.addEventListener('submit', async function (event) {
+formTarefa.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!usuarioLogado) return;
 
     const tituloLimpo = titulo.value.trim();
     if (!tituloLimpo) return;
 
+    const TempId = proximoTempId--;
     const novaTarefa = {
         titulo: tituloLimpo,
         prioridade: prioridade.value,
@@ -370,84 +405,141 @@ formTarefa.addEventListener('submit', async function (event) {
         status: 'a-fazer'
     };
 
+    // 1. Atualiza a interface imediatamente com ID temporário
+    tarefas.push({ id: TempId, ...novaTarefa });
+    tarefasSincronizando.add(TempId);
+    formTarefa.reset();
+    renderizarTarefas();
+
+    // 2. Envia para o servidor em paralelo
     try {
-        const resposta = await fetch(API_TAREFAS, {
+        const resposta = await fetchAutenticado(API_TAREFAS, {
             method: 'POST',
-            headers: headersComUsuario(true),
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(novaTarefa)
         });
         if (!resposta.ok) throw new Error(`Erro HTTP: ${resposta.status}`);
 
-        formTarefa.reset();
-        await carregarTarefas();
+        const tarefaCriada = await resposta.json();
+        if (!usuarioLogado) return;
+
+        // Troca o item temporário pelo objeto oficial com ID real
+        const indice = tarefas.findIndex((item) => item.id === TempId);
+        if (indice !== -1) {
+            tarefas[indice] = tarefaCriada;
+        }
     } catch (erro) {
-        console.error('Erro ao criar tarefa:', erro);
+        if (!usuarioLogado) return;
+
+        // 3. Rollback: remove o card temporário se falhar
+        tarefas = tarefas.filter((item) => item.id !== TempId);
+        if (erro.message != 'Sessão expirada') {
+            console.error('Erro ao criar tarefa:', erro);
+            alert(`Não foi possível salvar "${tituloLimpo}". A alteração foi desfeita`);
+        }
+    } finally {
+        tarefasSincronizando.delete(TempId);
+        if (usuarioLogado) renderizarTarefas();
     }
 });
 
 async function avancarTarefa(id) {
-    if (!usuarioLogado) return;
+    if (!usuarioLogado || id < 0 || tarefasSincronizando.has(id)) return;
 
     const tarefa = tarefas.find(item => item.id === id);
     if (!tarefa) return;
 
+    const statusAnterior = tarefa.status;
     let novoStatus = 'a-fazer';
-    if (tarefa.status === 'a-fazer') {
+    if (statusAnterior === 'a-fazer') {
         novoStatus = 'fazendo';
-    } else if (tarefa.status === 'fazendo') {
+    } else if (statusAnterior === 'fazendo') {
         novoStatus = 'feito';
     }
 
+    // 1. Atualiza a interface imediatamente
+    tarefa.status = novoStatus;
+    tarefasSincronizando.add(id);
+    renderizarTarefas();
+
+    // 2. Envia para o servidor em paralelo
     try {
-        const resposta = await fetch(`${API_TAREFAS}/${id}/status`, {
+        const resposta = await fetchAutenticado(`${API_TAREFAS}/${id}/status`, {
             method: 'PUT',
-            headers: headersComUsuario(true),
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: novoStatus })
         });
 
         if (!resposta.ok) throw new Error(`Erro HTTP: ${resposta.status}`);
-
-        await carregarTarefas();
     } catch (erro) {
-        console.error('Erro ao atualizar status:', erro);
+        if (!usuarioLogado) return;
+
+        // 3. Rollback: volta para o status anterior
+        tarefa.status = statusAnterior;
+        if (erro.message !== 'Sessão expirada') {
+            console.error('Erro ao atualizar status:', erro);
+            alert('Não foi possível atualizar status. A alteração foi desfeita.');
+        }
+    } finally {
+        tarefasSincronizando.delete(id);
+        if (usuarioLogado) renderizarTarefas();
     }
 }
 
 async function excluirTarefa(id) {
-    if (!usuarioLogado) return;
+    if (!usuarioLogado || id < 0 || tarefasSincronizando.has(id)) return;
 
+    const indice = tarefas.findIndex((item) => item.id === id);
+    if (indice === -1) return;
+
+    const tarefaRemovida = tarefas[indice];
+
+    // 1. Remove da interface imediatamente
+    tarefas.splice(indice, 1);
+    renderizarTarefas();
+
+    // 2. Envia para o servidor em paralelo
     try {
-        const resposta = await fetch(`${API_TAREFAS}/${id}`, {
+        const resposta = await fetchAutenticado(`${API_TAREFAS}/${id}`, {
             method: 'DELETE',
-            headers: headersComUsuario()
         });
 
         if (!resposta.ok) throw new Error(`Erro HTTP: ${resposta.status}`);
-
-        await carregarTarefas();
     } catch (erro) {
-        console.error('Erro ao excluir tarefa:', erro);
+        if (!usuarioLogado) return;
+
+        // 3. Rollback: recoloca a tarefa na posição original
+        tarefas.splice(Math.min(indice, tarefas.length), 0, tarefaRemovida);
+        renderizarTarefas();
+        if (erro.message !== 'Sessão expirada') {
+            console.error('Erro ao excluir tarefa:', erro);
+            alert(`Não foi possível excluir "${tarefaRemovida.titulo}". A tarefa foi restaurada`)
+        }
     }
 }
 
 // 9. Renderizar Tarefas
 function renderizarTarefas() {
-    const termoBusca = busca.value.toLowerCase();
+    const termoBusca = busca.value.trim().toLowerCase();
     const statusSelecionado = filtroStatus.value;
     const prioridadeSelecionada = filtroPrioridade.value;
 
-    const tarefasFiltradas = tarefas.filter(tarefa => {
-        const bateBusca = tarefa.titulo.toLowerCase().includes(termoBusca);
+    let pendentes = 0;
+    const tarefasFiltradas = [];
+
+    for (const tarefa of tarefas) {
+        if (tarefa.status !== 'feito') pendentes++;
+
+        const bateBusca = !termoBusca || tarefa.titulo.toLowerCase().includes(termoBusca);
         const bateStatus = statusSelecionado === 'todos' || tarefa.status === statusSelecionado;
         const batePrioridade = prioridadeSelecionada === 'todas' || tarefa.prioridade === prioridadeSelecionada;
 
-        return bateBusca && bateStatus && batePrioridade;
-    });
+        if (bateBusca && bateStatus && batePrioridade) {
+            tarefasFiltradas.push(tarefa);
+        }
+    }
 
-    const pendentes = tarefas.filter(t => t.status !== 'feito').length;
     contador.textContent = `${pendentes} ${pendentes === 1 ? 'pendente' : 'pendentes'}`;
-
-    listaTarefas.innerHTML = '';
 
     if (tarefasFiltradas.length === 0) {
         listaTarefas.innerHTML = `<p class="vazio">Nenhuma tarefa encontrada</p>`;
@@ -457,13 +549,15 @@ function renderizarTarefas() {
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
 
-    tarefasFiltradas.forEach(tarefa => {
+    const fragment = document.createDocumentFragment();
+
+    for (const tarefa of tarefasFiltradas) {
         let atrasada = false;
         let txtPrazo = 'Sem prazo';
 
         if (tarefa.prazo) {
             const [ano, mes, dia] = tarefa.prazo.split('-');
-            const dataPrazo = new Date(ano, mes - 1, dia);
+            const dataPrazo = new Date(Number(ano), Number(mes) - 1, Number(dia));
             txtPrazo = `Vence em: ${dia}/${mes}/${ano}`;
 
             if (dataPrazo < hoje && tarefa.status !== 'feito') {
@@ -475,31 +569,42 @@ function renderizarTarefas() {
         if (tarefa.status === 'fazendo') txtBtnStatus = 'Concluir';
         if (tarefa.status === 'feito') txtBtnStatus = 'Reabrir';
 
+        const sincronizando = tarefa.id < 0 || tarefasSincronizando.has(tarefa.id);
+        const attrDisabled = sincronizando ? 'disabled' : '';
+
         const card = document.createElement('div');
-        card.className = `tarefa-card prioridade-${tarefa.prioridade} status-${tarefa.status}`;
+        card.className = `tarefa-card prioridade-${escapeHtml(tarefa.prioridade)} status-${escapeHtml(tarefa.status)}`;
 
         card.innerHTML = `
             <div class="tarefa-info">
-                <h3>${tarefa.titulo}</h3>
+                <h3>${escapeHtml(tarefa.titulo)}</h3>
                 <div class="tarefa-meta">
-                    <span class="badge badge-status">${tarefa.status.replace('-', ' ')}</span>
+                    <span class="badge badge-status">${escapeHtml(tarefa.status.replace('-', ' '))}</span>
                     <span>${txtPrazo}</span>
                     ${atrasada ? '<span class="badge badge-atrasada">Atrasada</span>' : ''}
                 </div>
             </div>
             <div class="tarefa-acoes">
-                <button type="button" class="btn-acao btn-status">${txtBtnStatus}</button>
-                <button type="button" class="btn-acao btn-excluir">Excluir</button>
+                <button type="button" class="btn-acao btn-status" data-acao="status" data-id="${tarefa.id}" ${attrDisabled}>${txtBtnStatus}</button>
+                <button type="button" class="btn-acao btn-excluir" data-acao="excluir" data-id="${tarefa.id}" ${attrDisabled}>Excluir</button>
             </div>
         `;
-        card.querySelector('.btn-status').addEventListener('click', () => avancarTarefa(tarefa.id));
-        card.querySelector('.btn-excluir').addEventListener('click', () => excluirTarefa(tarefa.id));
 
-        listaTarefas.appendChild(card);
-    });
+        fragment.appendChild(card);
+    }
+    listaTarefas.replaceChildren(fragment);
 }
 
-busca.addEventListener('input', renderizarTarefas);
+listaTarefas.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-acao]');
+    if(!btn || btn.disabled) return;
+
+    const id = Number(btn.dataset.id);
+    if(btn.dataset.acao === 'status') avancarTarefa(id);
+    if(btn.dataset.acao === 'excluir') excluirTarefa(id);
+});
+
+busca.addEventListener('input', debounce(renderizarTarefas, 200));
 filtroStatus.addEventListener('change', renderizarTarefas);
 filtroPrioridade.addEventListener('change', renderizarTarefas);
 
@@ -507,7 +612,21 @@ filtroPrioridade.addEventListener('change', renderizarTarefas);
 const sessaoSalva = localStorage.getItem('usuarioLogado');
 if (sessaoSalva) {
     try {
-        entrarNoApp(JSON.parse(sessaoSalva));
+        const sessao = JSON.parse(sessaoSalva);
+        if (sessao?.token) {
+            entrarNoApp(sessao);
+            fetchAutenticado(`${API_BASE}/auth/me`)
+                .then((res) => (res.ok ? res.json() : null))
+                .then((dadosAtualizados) => {
+                    if (!dadosAtualizados || !usuarioLogado) return;
+                    usuarioLogado = { ...usuarioLogado, ...dadosAtualizados };
+                    localStorage.setItem('usuarioLogado', JSON.stringify(usuarioLogado));
+                    usuarioNomeSpan.textContent = usuarioLogado.nome;
+                })
+                .catch(() => {});
+        } else {
+            localStorage.removeItem('usuarioLogado');
+        }
     } catch {
         localStorage.removeItem('usuarioLogado');
     }
