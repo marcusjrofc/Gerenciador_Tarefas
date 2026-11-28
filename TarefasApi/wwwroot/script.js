@@ -1,5 +1,5 @@
 // 1. Configuração da API e Estado
-const API_BASE = 'https://tarefas-api-dqhd.onrender.com';
+const API_BASE = 'https://tarefas-api-dqhd.onrender.com/';
 
 const API_TAREFAS = `${API_BASE}/tarefas`;
 let tarefas = [];
